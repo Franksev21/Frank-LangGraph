@@ -1,0 +1,12 @@
+langchain
+langchain-community
+langchain-core
+langchain-openai
+langchainhub
+langgraph
+duckduckgo-search>=5.3.1
+requests>=2.31.0
+tavily-python
+python-dotenv
+pydantic
+streamlit
