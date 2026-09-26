@@ -1,12 +1,11 @@
 langchain
 langchain-community
 langchain-core
-langchain-openai
-langchainhub
+langchain-anthropic
 langgraph
-duckduckgo-search>=5.3.1
 requests>=2.31.0
 tavily-python
 python-dotenv
 pydantic
 streamlit
+anthropic
