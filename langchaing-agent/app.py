@@ -1,35 +1,41 @@
-
 import os
-
-from dotenv import load_dotenv
-import certifi
-import streamlit as st
 import requests
+import streamlit as st
+from dotenv import load_dotenv
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+from langchain_core.tools import tool
+from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain_anthropic import ChatAnthropic
+from langchain.agents import create_agent
+
+load_dotenv()
+
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 WEATHERSTACK_API_KEY = os.getenv("WEATHERSTACK_API_KEY")
 
-import os
-from langchain_community.tools.tavily_search import TavilySearchResults
+st.set_page_config(
+    page_title="Agentic AI Assistant",
+    page_icon="🤖",
+    layout="centered"
+)
 
-
-os.environ["TAVILY_API_KEY"] = "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"
+st.title("🤖 Agentic AI Assistant")
+st.caption("Search + Weather AI Agent using LangChain")
 
 search_tool = TavilySearchResults(
-    max_results=2, 
-    tavily_api_key=os.environ["TAVILY_API_KEY"]
+    max_results=2,
+    tavily_api_key=TAVILY_API_KEY
 )
 
 
+@tool
 def get_weather_data(city: str) -> str:
     """Get the current weather for a given city."""
     url = (
         f"https://api.weatherstack.com/current?"
         f"access_key={WEATHERSTACK_API_KEY}&query={city}"
     )
-
     response = requests.get(url)
     data = response.json()
 
@@ -42,66 +48,35 @@ def get_weather_data(city: str) -> str:
         f"humidity of {data['current']['humidity']}%."
     )
 
-resultados = search_tool.invoke("What is the capital of France?")
-resultados
-from anthropic import Anthropic
 
-client = Anthropic(api_key= os.environ["ANTHROPIC_API_KEY"])
-
-response = client.messages.create(
-    model="claude-sonnet-5",
-    max_tokens=100,
-    messages=[{"role": "user", "content": "What year is it?"}]
-)
-
-for block in response.content:
-    if block.type == "text":
-        print(block.text)
-        break
-
-# from langchain import hub
-# prompt = hub.pull("hwchase17/react")
-from langchain_core.prompts import PromptTemplate
-
-template = """Answer the following questions as best you can. You have access to the following tools:
-
-{tools}
-
-Use the following format:
-
-Question: the input question you must answer
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action
-Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now know the final answer
-Final Answer: the final answer to the original input question
-
-Begin!
-
-Question: {input}
-Thought:{agent_scratchpad}"""
-
-prompt = PromptTemplate.from_template(template)
 tools = [search_tool, get_weather_data]
-prompt
-# %pip install -q langchain-anthropic
 
-from langchain_anthropic import ChatAnthropic
-from langchain.agents import create_agent
 
-llm = ChatAnthropic(
-    model="claude-sonnet-4-6",
-    api_key=os.environ["ANTHROPIC_API_KEY"]
+@st.cache_resource
+def setup_agent():
+    llm = ChatAnthropic(
+        model="claude-sonnet-4-6",
+        api_key=ANTHROPIC_API_KEY
+    )
+    return create_agent(
+        model=llm,
+        tools=tools,
+        system_prompt="You are a helpful assistant. Use the tools available to answer questions."
+    )
+
+
+agent = setup_agent()
+
+user_query = st.text_input(
+    "Enter your query:",
+    placeholder="Example: Find the capital of India and current weather"
 )
 
-
-agent = create_agent(
-    model=llm,
-    tools=tools,
-    system_prompt="What years it is?"
-)
-result = agent.invoke({"messages": [("user", "find the capital of india" "and then find its current weather.")]})
-final_message = result["messages"][-1]
-print(final_message.content)
+if st.button("Run Agent"):
+    if user_query:
+        with st.spinner("Thinking..."):
+            result = agent.invoke({"messages": [("user", user_query)]})
+            final_message = result["messages"][-1]
+        st.write(final_message.content)
+    else:
+        st.warning("Please enter a query first.")
